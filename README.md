@@ -29,12 +29,18 @@ To get started with SSH Manager, you can either download the precompiled binary 
 git clone https://github.com/yourusername/ssh-manager.git
 cd ssh-manager
 go build -o sshm .
-mv sshm /usr/local/bin/sshm
+sudo mv sshm /usr/local/bin/sshm
 ```
 
 #### Option 2: Download the binary
 ```bash
-mv ~/Downloads/sshm /usr/local/bin/sshm
+sudo mv ~/Downloads/sshm /usr/local/bin/sshm
+```
+For macOS users, if you moved the binary in bin,
+but you can't use `sshm` because of permissions or because of Gatekeeper(can't be verified by Apple)
+```bash
+sudo chmod +x sshm
+xattr -d com.apple.quarantine sshm
 ```
 
 ## Usage
