@@ -33,8 +33,9 @@ sudo mv sshm /usr/local/bin/sshm
 ```
 
 #### Option 2: Download the binary
+Replace "{YOUR-version}" with the rest of the name of your downloaded file
 ```bash
-sudo mv ~/Downloads/sshm /usr/local/bin/sshm
+sudo mv ~/Downloads/sshm-{YOUR-version} /usr/local/bin/sshm
 ```
 For macOS users, if you moved the binary in bin,
 but you can't use `sshm` because of permissions or because of Gatekeeper(can't be verified by Apple)
