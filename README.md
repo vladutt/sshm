@@ -44,6 +44,18 @@ sudo chmod +x sshm
 xattr -d com.apple.quarantine sshm
 ```
 
+For Windows users we need to register our exe in PATH. 
+As a first step, you can create a new folder named "bin" in "C:/Users/YourUsername". 
+After that we need to register that path. 
+```bach
+[Environment]::SetEnvironmentVariable(
+  "PATH",
+  $env:PATH + ";C:\Users\YourUsername\bin",
+  [EnvironmentVariableTarget]::User
+)
+```
+Move your `sshm.exe` in that folder to the root directory and restart the terminal. 
+
 ## Usage
 
 ### 1. Listing SSH configurations
