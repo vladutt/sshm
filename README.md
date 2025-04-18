@@ -19,7 +19,6 @@ SSH Manager is a simple command-line tool written in Go for managing and connect
 ## Installation
 
 ### 1. Clone the repository or download the binary
-
 To get started with SSH Manager, you can either download the precompiled binary or clone this repository and build the application.
 
 #### Option 1: Clone the repository and build it
@@ -28,6 +27,12 @@ To get started with SSH Manager, you can either download the precompiled binary 
 git clone https://github.com/yourusername/ssh-manager.git
 cd ssh-manager
 go build -o sshm .
+mv sshm /usr/local/bin/sshm
+```
+
+#### Option 2: Download the binary
+```bash
+mv ~/Downloads/sshm /usr/local/bin/sshm
 ```
 
 ## Usage
