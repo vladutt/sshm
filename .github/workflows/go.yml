@@ -31,6 +31,12 @@ jobs:
       - name: Build for macOS apple arm64
         run: GOOS=darwin GOARCH=arm64 go build -o sshm-darwin-arm64
 
+      - name: Build for Windows amd64
+        run: GOOS=windows GOARCH=amd64 go build -o sshm-windows-amd64.exe
+
+      - name: Build for Windows arm64
+        run: GOOS=windows GOARCH=arm64 go build -o sshm-windows-arm64.exe
+
       - name: Test
         run: go test -v ./...
 
@@ -42,5 +48,7 @@ jobs:
             sshm-linux-amd64
             sshm-darwin-amd64
             sshm-darwin-arm64
+            sshm-windows-amd64.exe
+            sshm-windows-arm64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
