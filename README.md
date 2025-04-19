@@ -2,7 +2,7 @@
 
 SSH Manager is a simple command-line tool written in Go for managing and connecting to remote servers using SSH. It reads and parses your SSH config file, lists available servers, and allows you to select a server to SSH into quickly and easily.
 
-Available for: Linux && MacOS
+Available for: Linux, MacOS && Windows
 
 ## Features
 
