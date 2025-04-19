@@ -111,8 +111,6 @@ func main() {
     table.Render()
 
     serverID := selectServerPrompt()
-    fmt.Printf("Server selected: %d \n", serverID)
-
 
     currentServer := getConfigByID(serverID, filteredRows)
 
