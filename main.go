@@ -85,27 +85,27 @@ func main() {
 		configs = append(configs, current)
 	}
 
-	// Setup table
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"ID", "Name", "IP", "User", "Port", "Identity"})
 
-	for i, cfg := range configs {
+    ID := 1
+	for _, cfg := range configs {
         if search != "" && !strings.Contains(strings.ToLower(cfg.Host), search) {
             continue
         }
 
-        i = i+1;
-
-	    filteredRows = append(filteredRows, TableRow{ID: i, Config: cfg})
+	    filteredRows = append(filteredRows, TableRow{ID: ID, Config: cfg})
 
 		table.Append([]string{
-			fmt.Sprintf("%d", i),
+			fmt.Sprintf("%d", ID),
 			cfg.Host,
 			cfg.HostName,
 			cfg.User,
 			orDefault(cfg.Port, "22"),
 			cfg.IdentityFile,
 		})
+
+        ID = ID+1
 	}
 
     table.Render()
