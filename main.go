@@ -10,6 +10,7 @@ import (
 	"strings"
 	"strconv"
 	"github.com/olekukonko/tablewriter"
+	"regexp"
 )
 
 type SSHConfig struct {
@@ -110,29 +111,43 @@ func main() {
 
     table.Render()
 
-    serverID := selectServerPrompt()
+    if len(filteredRows) == 0 {
+        return
+    }
+
+    serverID, options := selectServerPrompt()
 
     currentServer := getConfigByID(serverID, filteredRows)
 
-    sshErr := sshToServer(currentServer)
+    sshErr := sshToServer(currentServer, options)
     if sshErr != nil {
         fmt.Println("Eroare la SSH:", sshErr)
     }
 }
 
-func selectServerPrompt() int {
+func selectServerPrompt() (int, string) {
     reader := bufio.NewReader(os.Stdin)
 
     fmt.Print("Select a server: ")
     serverSelected, _ := reader.ReadString('\n')
     serverSelected = strings.TrimSpace(serverSelected)
 
-    serverSelectedNumber, err := strconv.Atoi(serverSelected)
-    if err != nil {
-        return 0
+    options := ""
+
+    if _, err := strconv.Atoi(serverSelected); err != nil {
+        re := regexp.MustCompile(`([a-zA-Z]+)(\d+)`)
+        matches := re.FindStringSubmatch(serverSelected)
+
+        options = matches[1]
     }
 
-    return serverSelectedNumber
+    serverSelectedNumber, err := strconv.Atoi(strings.TrimPrefix(serverSelected, options))
+
+    if err != nil {
+        return 0, ""
+    }
+
+    return serverSelectedNumber, options
 }
 
 func orDefault(value, fallback string) string {
@@ -151,7 +166,7 @@ func getConfigByID(id int, filteredRows []TableRow) *SSHConfig {
     return nil
 }
 
-func sshToServer(cfg *SSHConfig) error {
+func sshToServer(cfg *SSHConfig, options string) error {
     if cfg.Port == "" {
         cfg.Port = "22"
     }
@@ -165,6 +180,65 @@ func sshToServer(cfg *SSHConfig) error {
     }
 
     args = append(args, fmt.Sprintf("%s@%s", cfg.User, cfg.HostName))
+    sshCmd := fmt.Sprintf("ssh %s", strings.Join(args, " "))
+
+    if strings.Contains(options, "n") {
+        // AppleScript for iTerm2
+        osaScript := fmt.Sprintf(`tell application "iTerm2"
+            tell current window
+                set newTab to create tab with default profile
+                tell current session of newTab
+                    write text "%s"
+                end tell
+            end tell
+        end tell`, sshCmd)
+
+        cmd := exec.Command("osascript", "-e", osaScript)
+        cmd.Stdin = os.Stdin
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+    }
+
+    if strings.Contains(options, "h") {
+        // AppleScript for iTerm2
+        osaScript := fmt.Sprintf(`tell application "iTerm2"
+            tell current window
+                tell current session
+                    set newSession to split horizontally with default profile
+                    tell newSession
+                        write text "%s"
+                    end tell
+                end tell
+            end tell
+        end tell`, sshCmd)
+
+        cmd := exec.Command("osascript", "-e", osaScript)
+        cmd.Stdin = os.Stdin
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+    }
+
+    if strings.Contains(options, "v") {
+        // AppleScript for iTerm2
+        osaScript := fmt.Sprintf(`tell application "iTerm2"
+            tell current window
+                tell current session
+                    set newSession to split vertically with default profile
+                    tell newSession
+                        write text "%s"
+                    end tell
+                end tell
+            end tell
+        end tell`, sshCmd)
+
+        cmd := exec.Command("osascript", "-e", osaScript)
+        cmd.Stdin = os.Stdin
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        return cmd.Run()
+    }
 
     cmd := exec.Command("ssh", args...)
     cmd.Stdin = os.Stdin
