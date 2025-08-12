@@ -88,7 +88,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	return fmt.Sprintf("%s\n\n%s\n\n(press TAB to switch the focus)", m.table.View(), m.textInput.View())
+	return fmt.Sprintf(
+		"%s\n\n%s\n\n(press TAB to switch the focus)",
+		baseStyle.Render(m.table.View()),
+		m.textInput.View(),
+	)
 }
 
 type SSHConfig struct {
