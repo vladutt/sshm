@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -21,7 +22,9 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type model struct {
-	table table.Model
+	table     table.Model
+	textInput textinput.Model
+	focus     string
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -39,19 +42,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "ctrl+v":
-
+		case "tab":
+			if m.focus == "table" {
+				m.focus = "input"
+				m.table.Blur()
+				m.textInput.Focus()
+			} else {
+				m.focus = "table"
+				m.textInput.Blur()
+				m.table.Focus()
+			}
 		case "enter":
-			selected := m.table.SelectedRow()
-			if len(selected) == 0 {
-				fmt.Println("Nu e niciun rând selectat.")
-				return m, nil
+			selected := ""
+
+			if m.focus == "input" {
+				selected = m.textInput.Value()
+				m.textInput.SetValue("")
+			} else {
+				if len(m.table.SelectedRow()) == 0 {
+					fmt.Println("Nothing selected")
+					return m, nil
+				}
+				selected = m.table.SelectedRow()[0]
 			}
 
-			ID, err := strconv.Atoi(selected[0])
+			fmt.Println(selected)
+
+			ID, err := strconv.Atoi(selected)
 			if err != nil {
-				fmt.Println("ID invalid:", selected[0])
-				return m, nil
+				fmt.Println("ID invalid:", selected)
+				return m, tea.Quit
 			}
 
 			selectedServer = ID
@@ -59,12 +79,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
-	m.table, cmd = m.table.Update(msg)
+	if m.focus == "table" {
+		m.table, cmd = m.table.Update(msg)
+	} else {
+		m.textInput, cmd = m.textInput.Update(msg)
+	}
 	return m, cmd
 }
 
 func (m model) View() string {
-	return baseStyle.Render(m.table.View()) + "\n"
+	return fmt.Sprintf("%s\n\n%s\n\n(press TAB to switch the focus)", m.table.View(), m.textInput.View())
 }
 
 type SSHConfig struct {
@@ -186,6 +210,11 @@ func main() {
 		table.WithHeight(tableHeight),
 	)
 
+	ti := textinput.New()
+	ti.Width = 30
+	ti.Placeholder = "Type the ID of a server"
+	ti.CharLimit = 3
+
 	s := table.DefaultStyles()
 	s.Header = s.Header.
 		BorderStyle(lipgloss.NormalBorder()).
@@ -198,7 +227,7 @@ func main() {
 		Bold(false)
 	t.SetStyles(s)
 
-	m := model{t}
+	m := model{t, ti, "table"}
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
@@ -208,11 +237,10 @@ func main() {
 		currentServer := getConfigByID(selectedServer, filteredRows)
 		sshErr := sshToServer(currentServer, "")
 		if sshErr != nil {
-			fmt.Println("Eroare la SSH:", sshErr)
+			fmt.Println("Error SSH:", sshErr)
 		}
 	}
 
-	return
 }
 
 func selectServerPrompt() (int, string) {

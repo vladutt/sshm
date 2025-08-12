@@ -5,6 +5,7 @@ go 1.23.4
 require github.com/olekukonko/tablewriter v0.0.5
 
 require (
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbletea v1.3.4 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
