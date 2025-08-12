@@ -184,6 +184,10 @@ func main() {
 			continue
 		}
 
+		if len(cfg.User) == 0 {
+			continue
+		}
+
 		filteredRows = append(filteredRows, TableRow{ID: ID, Config: cfg})
 
 		rows = append(rows, table.Row{
