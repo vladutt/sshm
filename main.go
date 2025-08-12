@@ -4,20 +4,74 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/user"
 	"os/exec"
+	"os/user"
 	"path/filepath"
-	"strings"
-	"strconv"
-	"github.com/olekukonko/tablewriter"
 	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/table"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
+
+type model struct {
+	table table.Model
+}
+
+func (m model) Init() tea.Cmd { return nil }
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			if m.table.Focused() {
+				m.table.Blur()
+			} else {
+				m.table.Focus()
+			}
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "ctrl+v":
+
+		case "enter":
+			selected := m.table.SelectedRow()
+			if len(selected) == 0 {
+				fmt.Println("Nu e niciun rând selectat.")
+				return m, nil
+			}
+
+			ID, err := strconv.Atoi(selected[0])
+			if err != nil {
+				fmt.Println("ID invalid:", selected[0])
+				return m, nil
+			}
+
+			selectedServer = ID
+
+			return m, tea.Quit
+		}
+	}
+	m.table, cmd = m.table.Update(msg)
+	return m, cmd
+}
+
+func (m model) View() string {
+	return baseStyle.Render(m.table.View()) + "\n"
+}
+
 type SSHConfig struct {
-	Host        string
-	HostName    string
-	User        string
-	Port        string
+	Host         string
+	HostName     string
+	User         string
+	Port         string
 	IdentityFile string
 }
 
@@ -26,7 +80,20 @@ type TableRow struct {
 	Config SSHConfig
 }
 
+var filteredRows []TableRow
+var selectedServer int
+
 func main() {
+
+	columns := []table.Column{
+		{Title: "ID", Width: 4},
+		{Title: "Name", Width: 25},
+		{Title: "IP", Width: 35},
+		{Title: "User", Width: 10},
+		{Title: "Port", Width: 10},
+		{Title: "Identity", Width: 50},
+	}
+
 	search := ""
 	if len(os.Args) > 1 {
 		search = strings.ToLower(os.Args[1])
@@ -44,7 +111,6 @@ func main() {
 	defer file.Close()
 
 	var configs []SSHConfig
-    var filteredRows []TableRow
 	var current SSHConfig
 
 	scanner := bufio.NewScanner(file)
@@ -65,20 +131,20 @@ func main() {
 		value := strings.Join(fields[1:], " ")
 
 		switch key {
-            case "host":
-                if current.Host != "" {
-                    configs = append(configs, current)
-                }
-                current = SSHConfig{Host: value}
+		case "host":
+			if current.Host != "" {
+				configs = append(configs, current)
+			}
+			current = SSHConfig{Host: value}
 
-            case "hostname":
-                current.HostName = value
-            case "user":
-                current.User = value
-            case "port":
-                current.Port = value
-            case "identityfile":
-                current.IdentityFile = value
+		case "hostname":
+			current.HostName = value
+		case "user":
+			current.User = value
+		case "port":
+			current.Port = value
+		case "identityfile":
+			current.IdentityFile = value
 		}
 	}
 
@@ -86,18 +152,17 @@ func main() {
 		configs = append(configs, current)
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Name", "IP", "User", "Port", "Identity"})
+	rows := []table.Row{}
 
-    ID := 1
+	ID := 1
 	for _, cfg := range configs {
-        if search != "" && !strings.Contains(strings.ToLower(cfg.Host), search) {
-            continue
-        }
+		if search != "" && !strings.Contains(strings.ToLower(cfg.Host), search) {
+			continue
+		}
 
-	    filteredRows = append(filteredRows, TableRow{ID: ID, Config: cfg})
+		filteredRows = append(filteredRows, TableRow{ID: ID, Config: cfg})
 
-		table.Append([]string{
+		rows = append(rows, table.Row{
 			fmt.Sprintf("%d", ID),
 			cfg.Host,
 			cfg.HostName,
@@ -106,85 +171,110 @@ func main() {
 			cfg.IdentityFile,
 		})
 
-        ID = ID+1
+		ID = ID + 1
 	}
 
-    table.Render()
+	var tableHeight = 20
+	if len(rows) < 20 {
+		tableHeight = len(rows) + 2 // to have the last row empty
+	}
 
-    if len(filteredRows) == 0 {
-        return
-    }
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(tableHeight),
+	)
 
-    serverID, options := selectServerPrompt()
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
 
-    currentServer := getConfigByID(serverID, filteredRows)
+	m := model{t}
+	if _, err := tea.NewProgram(m).Run(); err != nil {
+		fmt.Println("Error running program:", err)
+		os.Exit(1)
+	}
 
-    sshErr := sshToServer(currentServer, options)
-    if sshErr != nil {
-        fmt.Println("Eroare la SSH:", sshErr)
-    }
+	if selectedServer > 0 {
+		currentServer := getConfigByID(selectedServer, filteredRows)
+		sshErr := sshToServer(currentServer, "")
+		if sshErr != nil {
+			fmt.Println("Eroare la SSH:", sshErr)
+		}
+	}
+
+	return
 }
 
 func selectServerPrompt() (int, string) {
-    reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 
-    fmt.Print("Select a server: ")
-    serverSelected, _ := reader.ReadString('\n')
-    serverSelected = strings.TrimSpace(serverSelected)
+	fmt.Print("Select a server: ")
+	serverSelected, _ := reader.ReadString('\n')
+	serverSelected = strings.TrimSpace(serverSelected)
 
-    options := ""
+	options := ""
 
-    if _, err := strconv.Atoi(serverSelected); err != nil {
-        re := regexp.MustCompile(`([a-zA-Z]+)(\d+)`)
-        matches := re.FindStringSubmatch(serverSelected)
+	if _, err := strconv.Atoi(serverSelected); err != nil {
+		re := regexp.MustCompile(`([a-zA-Z]+)(\d+)`)
+		matches := re.FindStringSubmatch(serverSelected)
 
-        options = matches[1]
-    }
+		options = matches[1]
+	}
 
-    serverSelectedNumber, err := strconv.Atoi(strings.TrimPrefix(serverSelected, options))
+	serverSelectedNumber, err := strconv.Atoi(strings.TrimPrefix(serverSelected, options))
 
-    if err != nil {
-        return 0, ""
-    }
+	if err != nil {
+		return 0, ""
+	}
 
-    return serverSelectedNumber, options
+	return serverSelectedNumber, options
 }
 
 func orDefault(value, fallback string) string {
-    if value == "" {
-        return fallback
-    }
-    return value
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func getConfigByID(id int, filteredRows []TableRow) *SSHConfig {
-    for _, row := range filteredRows {
-        if row.ID == id {
-            return &row.Config
-        }
-    }
-    return nil
+	for _, row := range filteredRows {
+		if row.ID == id {
+			return &row.Config
+		}
+	}
+	return nil
 }
 
 func sshToServer(cfg *SSHConfig, options string) error {
-    if cfg.Port == "" {
-        cfg.Port = "22"
-    }
+	if cfg.Port == "" {
+		cfg.Port = "22"
+	}
 
-    args := []string{
-        "-p", cfg.Port,
-    }
+	args := []string{
+		"-p", cfg.Port,
+	}
 
-    if cfg.IdentityFile != "" {
-        args = append(args, "-i", cfg.IdentityFile)
-    }
+	if cfg.IdentityFile != "" {
+		args = append(args, "-i", cfg.IdentityFile)
+	}
 
-    args = append(args, fmt.Sprintf("%s@%s", cfg.User, cfg.HostName))
-    sshCmd := fmt.Sprintf("ssh %s", strings.Join(args, " "))
+	args = append(args, fmt.Sprintf("%s@%s", cfg.User, cfg.HostName))
+	sshCmd := fmt.Sprintf("ssh %s", strings.Join(args, " "))
 
-    if strings.Contains(options, "n") {
-        // AppleScript for iTerm2
-        osaScript := fmt.Sprintf(`tell application "iTerm2"
+	if strings.Contains(options, "n") {
+		// AppleScript for iTerm2
+		osaScript := fmt.Sprintf(`tell application "iTerm2"
             tell current window
                 set newTab to create tab with default profile
                 tell current session of newTab
@@ -193,57 +283,61 @@ func sshToServer(cfg *SSHConfig, options string) error {
             end tell
         end tell`, sshCmd)
 
-        cmd := exec.Command("osascript", "-e", osaScript)
-        cmd.Stdin = os.Stdin
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
-        return cmd.Run()
-    }
+		cmd := exec.Command("osascript", "-e", osaScript)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
 
-    if strings.Contains(options, "h") {
-        // AppleScript for iTerm2
-        osaScript := fmt.Sprintf(`tell application "iTerm2"
+	if strings.Contains(options, "h") {
+		// AppleScript for iTerm2
+		osaScript := fmt.Sprintf(`tell application "iTerm2"
             tell current window
                 tell current session
+					set oldSession to id
                     set newSession to split horizontally with default profile
                     tell newSession
                         write text "%s"
                     end tell
+	            	select session id oldSession
                 end tell
             end tell
         end tell`, sshCmd)
 
-        cmd := exec.Command("osascript", "-e", osaScript)
-        cmd.Stdin = os.Stdin
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
-        return cmd.Run()
-    }
+		cmd := exec.Command("osascript", "-e", osaScript)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
 
-    if strings.Contains(options, "v") {
-        // AppleScript for iTerm2
-        osaScript := fmt.Sprintf(`tell application "iTerm2"
+	if strings.Contains(options, "v") {
+		// AppleScript for iTerm2
+		osaScript := fmt.Sprintf(`tell application "iTerm2"
             tell current window
                 tell current session
+					set oldSession to id
                     set newSession to split vertically with default profile
                     tell newSession
                         write text "%s"
                     end tell
+					select session id oldSession
                 end tell
             end tell
         end tell`, sshCmd)
 
-        cmd := exec.Command("osascript", "-e", osaScript)
-        cmd.Stdin = os.Stdin
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
-        return cmd.Run()
-    }
+		cmd := exec.Command("osascript", "-e", osaScript)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
 
-    cmd := exec.Command("ssh", args...)
-    cmd.Stdin = os.Stdin
-    cmd.Stdout = os.Stdout
-    cmd.Stderr = os.Stderr
+	cmd := exec.Command("ssh", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-    return cmd.Run()
+	return cmd.Run()
 }
