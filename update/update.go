@@ -7,7 +7,7 @@ import (
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 )
 
-const version = "0.0.3"
+const version = "0.0.7"
 const repository = "vladutt/sshm"
 const (
 	green  = "\033[32m"
