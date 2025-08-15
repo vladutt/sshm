@@ -266,7 +266,7 @@ func main() {
 		} else {
 			row = append(row, "")
 		}
-		fmt.Println(cfg.IdentityFile)
+
 		row = append(row, fmt.Sprintf("%d", ID), cfg.Host, cfg.HostName, cfg.User, orDefault(cfg.Port, "22"), cfg.IdentityFile)
 
 		rows = append(rows, row)
