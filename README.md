@@ -69,14 +69,17 @@ If you want to filter the list by a search term (for example, search for a speci
 sshm <search_term>
 ```
 
+Want to run a command on multiple servers?
+Just use the `-r` flag — this opens the server table where you can select servers with Space. Press TAB to switch to the command input. When you’re done, hit ENTER to run it.
+search term is optional
+```bash 
+sshm -r <search_term>
+```
+
 ### 2. Connecting to a server
 After listing the available SSH configurations, you will be prompted to select a server by its ID.
 ![SSH Manager Screenshot](./images/list.png)
 
-
 ## Roadmap
 - Cache configuration list
-- Run a command to multiple servers simultaneously
 - Generate a small table displaying the server status, including storage, load, CPU, and RAM usage.
-- Make servers to be selectable by arrows
-- I’m considering a way to share data between multiple devices, but without relying on the cloud.
